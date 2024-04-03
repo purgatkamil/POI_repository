@@ -23,7 +23,7 @@ import tkinter as tk
 from tkinter import filedialog
 from sklearn.cluster import KMeans
 
-def find_clusters_with_kmeans(points, k=3, n_init=10):
+'''def find_clusters_with_kmeans(points, k=3, n_init=10):
     """
     Dzieli chmurę punktów na rozłączne chmury za pomocą algorytmu k-średnich.
 
@@ -39,7 +39,46 @@ def find_clusters_with_kmeans(points, k=3, n_init=10):
     kmeans = KMeans(n_clusters=k, n_init=n_init)
     kmeans.fit(points)
     labels = kmeans.labels_
+    return labels'''
+
+import numpy as np
+
+def find_clusters_with_kmeans(points, k=2, max_iterations=100, tolerance=1e-4): #custom
+    """
+    Prosta implementacja algorytmu k-średnich, zwracająca etykiety klastrów dla punktów.
+    Ta wersja jest dostosowana do bezpośredniego użycia z innymi funkcjami, które oczekują etykiet klastrów.
+
+    Args:
+        points (np.array): Chmura punktów 3D.
+        k (int): Liczba klastrów do wyznaczenia.
+        max_iterations (int): Maksymalna liczba iteracji algorytmu.
+        tolerance (float): Próg tolerancji dla zmiany położenia centroidów, który decyduje o zakończeniu algorytmu.
+
+    Returns:
+        np.array: Etykiety dla każdego punktu wskazujące przynależność do klastrów.
+    """
+    # Inicjalizacja centroidów przez losowe wybranie k punktów z chmury punktów
+    centroids = points[np.random.choice(points.shape[0], k, replace=False)]
+    labels = np.zeros(points.shape[0])
+
+    for iteration in range(max_iterations):
+        # Przypisanie każdego punktu do najbliższego centroidu
+        distances = np.sqrt(((points - centroids[:, np.newaxis])**2).sum(axis=2))
+        closest_centroids = np.argmin(distances, axis=0)
+
+        # Aktualizacja centroidów
+        new_centroids = np.array([points[closest_centroids == j].mean(axis=0) for j in range(k)])
+
+        # Sprawdzenie, czy centroidy przestały się zmieniać (lub zmiany są poniżej zadanej tolerancji)
+        if np.all(np.sqrt(((new_centroids - centroids) ** 2).sum(axis=1)) < tolerance):
+            labels = closest_centroids
+            break
+
+        centroids = new_centroids
+        labels = closest_centroids
+
     return labels
+
 
 
 def plot_clusters(points, labels):
@@ -177,3 +216,6 @@ if filename:
     plot_points(points, inliers)
 else:
     print("Nie wybrano pliku.")
+
+#### Punkt 6 ####
+
