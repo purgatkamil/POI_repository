@@ -41,8 +41,6 @@ from sklearn.cluster import KMeans
     labels = kmeans.labels_
     return labels'''
 
-import numpy as np
-
 def find_clusters_with_kmeans(points, k=2, max_iterations=100, tolerance=1e-4): #custom
     """
     Prosta implementacja algorytmu k-średnich, zwracająca etykiety klastrów dla punktów.
@@ -78,8 +76,6 @@ def find_clusters_with_kmeans(points, k=2, max_iterations=100, tolerance=1e-4): 
         labels = closest_centroids
 
     return labels
-
-
 
 def plot_clusters(points, labels):
     """
@@ -160,10 +156,21 @@ def fit_plane_ransac(points, iterations=100, distance_threshold=0.01):
 
         distances = np.abs(A*points[:,0] + B*points[:,1] + C*points[:,2] + D) / np.linalg.norm(normal_vector)   # Obliczenie odległości punktów od płaszczyzny.
         inliers = points[distances < distance_threshold]    # Wybór punktów będących w określonej odległości od płaszczyzny.
+        mean_distance = np.mean(distances)  # Średnia odległość punktów od płaszczyzny
 
         if len(inliers) > len(best_inliers):    # Aktualizacja najlepszej płaszczyzny, jeśli znaleziono lepszy zestaw punktów.
             best_inliers = inliers
             best_plane = (A, B, C, D)
+
+    if mean_distance < distance_threshold:
+        print("Chmura jest płaszczyzną.")
+        # Określenie, czy płaszczyzna jest pionowa czy pozioma
+        if np.abs(C) > np.abs(A) and np.abs(C) > np.abs(B):
+            print("Płaszczyzna jest pozioma.")
+        else:
+            print("Płaszczyzna jest pionowa.")
+    else:
+        print("Chmura nie jest płaszczyzną.")
 
     return best_plane, best_inliers     # Zwrócenie najlepszej płaszczyzny i punktów do niej należących.
 
@@ -209,6 +216,7 @@ if filename:
     plane, inliers = fit_plane_ransac(points)
     print("Współczynniki płaszczyzny:", plane)
     print("Liczba punktów pasujących:", len(inliers))
+
 
     # Wyświetlanie chmury punktów z odróżnieniem kolorów
     labels = find_clusters_with_kmeans(points)
