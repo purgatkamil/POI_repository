@@ -15,15 +15,16 @@ Funkcje:
 - select_file: Otwiera okno dialogowe, umożliwiające użytkownikowi wybór pliku.
 
 """
-
+from sklearn.cluster import KMeans
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import tkinter as tk
 from tkinter import filedialog
-from sklearn.cluster import KMeans
+from sklearn.cluster import DBSCAN
+from pyransac3d import Plane
 
-'''def find_clusters_with_kmeans(points, k=3, n_init=10):
+def find_clusters_with_kmeans(points, k=3, n_init=10):
     """
     Dzieli chmurę punktów na rozłączne chmury za pomocą algorytmu k-średnich.
 
@@ -39,43 +40,46 @@ from sklearn.cluster import KMeans
     kmeans = KMeans(n_clusters=k, n_init=n_init)
     kmeans.fit(points)
     labels = kmeans.labels_
-    return labels'''
+    return labels
 
-def find_clusters_with_kmeans(points, k=2, max_iterations=100, tolerance=1e-4): #custom
+def find_clusters_with_dbscan(points, eps=0.5, min_samples=5):
     """
-    Prosta implementacja algorytmu k-średnich, zwracająca etykiety klastrów dla punktów.
-    Ta wersja jest dostosowana do bezpośredniego użycia z innymi funkcjami, które oczekują etykiet klastrów.
+    Znajduje rozłączne chmury punktów za pomocą algorytmu DBSCAN.
 
     Args:
         points (np.array): Chmura punktów 3D.
-        k (int): Liczba klastrów do wyznaczenia.
-        max_iterations (int): Maksymalna liczba iteracji algorytmu.
-        tolerance (float): Próg tolerancji dla zmiany położenia centroidów, który decyduje o zakończeniu algorytmu.
+        eps (float): Maksymalna odległość między dwoma punktami, aby jeden był uznany za sąsiada drugiego.
+        min_samples (int): Minimalna liczba punktów w sąsiedztwie punktu, aby był on uznany za punkt rdzeniowy.
 
     Returns:
-        np.array: Etykiety dla każdego punktu wskazujące przynależność do klastrów.
+        np.array: Etykiety dla każdego punktu wskazujące przynależność do klastrów. Punkty szumów otrzymują etykietę -1.
     """
-    # Inicjalizacja centroidów przez losowe wybranie k punktów z chmury punktów
-    centroids = points[np.random.choice(points.shape[0], k, replace=False)]
-    labels = np.zeros(points.shape[0])
+    # Użycie DBSCAN do znalezienia klastrów
+    clustering = DBSCAN(eps=eps, min_samples=min_samples).fit(points)
 
-    for iteration in range(max_iterations):
-        # Przypisanie każdego punktu do najbliższego centroidu
-        distances = np.sqrt(((points - centroids[:, np.newaxis])**2).sum(axis=2))
-        closest_centroids = np.argmin(distances, axis=0)
+    # Zwrócenie etykiet dla każdego punktu
+    return clustering.labels_
+def fit_plane_ransac_pyransac3d(points, iterations=100, distance_threshold=0.01):
+    """
+    Dopasowuje płaszczyznę do chmury punktów za pomocą algorytmu RANSAC z wykorzystaniem pyransac3d.
 
-        # Aktualizacja centroidów
-        new_centroids = np.array([points[closest_centroids == j].mean(axis=0) for j in range(k)])
+    Args:
+        points (np.array): Chmura punktów 3D.
+        iterations (int): Liczba iteracji algorytmu.
+        distance_threshold (float): Próg odległości dla punktów należących do płaszczyzny.
 
-        # Sprawdzenie, czy centroidy przestały się zmieniać (lub zmiany są poniżej zadanej tolerancji)
-        if np.all(np.sqrt(((new_centroids - centroids) ** 2).sum(axis=1)) < tolerance):
-            labels = closest_centroids
-            break
+    Returns:
+        tuple: Współczynniki najlepiej dopasowanej płaszczyzny (A, B, C, D) i punkty należące do tej płaszczyzny.
+    """
+    plane = Plane()  # Utworzenie instancji klasy Plane z pyransac3d.
+    best_eq, best_inliers = plane.fit(points, thresh=distance_threshold, maxIteration=iterations)
+    # `best_eq` zawiera współczynniki A, B, C, D najlepiej dopasowanej płaszczyzny.
+    # `best_inliers` to indeksy punktów z `points`, które najlepiej pasują do znalezionej płaszczyzny.
 
-        centroids = new_centroids
-        labels = closest_centroids
+    inlier_points = points[best_inliers]  # Wybór punktów będących inliers z oryginalnej chmury punktów.
 
-    return labels
+    return best_eq, inlier_points
+
 
 def plot_clusters(points, labels):
     """
@@ -222,8 +226,11 @@ if filename:
     labels = find_clusters_with_kmeans(points)
     plot_clusters(points, labels)
     plot_points(points, inliers)
+
+    labels = find_clusters_with_dbscan(points)
+    plot_clusters(points, labels)
+
+    plane, inliers = fit_plane_ransac_pyransac3d(points)
+    plot_points(points, inliers)
 else:
     print("Nie wybrano pliku.")
-
-#### Punkt 6 ####
-
