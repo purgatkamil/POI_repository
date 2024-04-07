@@ -7,22 +7,23 @@ za pomocą interfejsu graficznego. Następnie program wizualizuje wyniki, w tym 
 klasyfikacji punktów do poszczególnych chmur.
 
 Funkcje:
-- fit_plane_ransac: Dopasowuje płaszczyznę do chmury punktów za pomocą algorytmu RANSAC.
 - find_clusters_with_kmeans: Dzieli chmurę punktów na rozłączne chmury za pomocą algorytmu k-średnich.
+- find_clusters_with_dbscan: Dzieli chmurę punktów na rozłączne chmury za pomocą algorytmu DBSCAN z pakietu scikit-learn
+- fit_plane_ransac: Dopasowuje płaszczyznę do chmury punktów za pomocą zaimplementowanego algorytmu RANSAC.
+- fit_plane_ransac_pyransac3d: Dopasowuje płaszczyznę do chmury punktów za pomocą algorytmu RANSAC z pakietu pyransac3d.
 - plot_clusters: Wizualizuje wyniki klasteryzacji różnymi kolorami dla każdej chmury.
 - plot_points: Wyświetla chmurę punktów z odróżnieniem punktów należących i nienależących do dopasowanej płaszczyzny.
 - load_xyz: Wczytuje chmurę punktów z pliku .xyz.
 - select_file: Otwiera okno dialogowe, umożliwiające użytkownikowi wybór pliku.
 
 """
-from sklearn.cluster import KMeans
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import tkinter as tk
-from tkinter import filedialog
+from sklearn.cluster import KMeans
 from sklearn.cluster import DBSCAN
 from pyransac3d import Plane
+import tkinter as tk
+from tkinter import filedialog
+import matplotlib.pyplot as plt
 
 def find_clusters_with_kmeans(points, k=3, n_init=10):
     """
@@ -59,6 +60,50 @@ def find_clusters_with_dbscan(points, eps=0.5, min_samples=5):
 
     # Zwrócenie etykiet dla każdego punktu
     return clustering.labels_
+
+def fit_plane_ransac(points, iterations=100, distance_threshold=0.01):
+    """
+    Dopasowuje płaszczyznę do chmury punktów za pomocą algorytmu RANSAC.
+
+    Args:
+        points (np.array): Chmura punktów 3D.
+        iterations (int): Liczba iteracji algorytmu.
+        distance_threshold (float): Próg odległości dla punktów należących do płaszczyzny.
+
+    Returns:
+        tuple: Współczynniki najlepiej dopasowanej płaszczyzny i punkty należące do tej płaszczyzny.
+    """
+    best_plane = None   # Inicjalizacja zmiennej na najlepszą płaszczyznę.
+    best_inliers = []   # Lista punktów najlepiej dopasowanych do płaszczyzny.
+
+    for _ in range(iterations): # Wykonanie określonej liczby iteracji algorytmu.
+        sample_points = points[np.random.choice(points.shape[0], 3, replace=False)]     # Losowe wybranie 3 punktów z chmury.
+        v1 = sample_points[1] - sample_points[0]    # Obliczenie wektorów na płaszczyźnie.
+        v2 = sample_points[2] - sample_points[0]
+        normal_vector = np.cross(v1, v2)    # Obliczenie wektora normalnego do płaszczyzny.
+        A, B, C = normal_vector     # Rozpakowanie współczynników wektora normalnego.
+        D = -np.dot(normal_vector, sample_points[0])    # Obliczenie wartości D w równaniu płaszczyzny.
+
+        distances = np.abs(A*points[:,0] + B*points[:,1] + C*points[:,2] + D) / np.linalg.norm(normal_vector)   # Obliczenie odległości punktów od płaszczyzny.
+        inliers = points[distances < distance_threshold]    # Wybór punktów będących w określonej odległości od płaszczyzny.
+        mean_distance = np.mean(distances)  # Średnia odległość punktów od płaszczyzny
+
+        if len(inliers) > len(best_inliers):    # Aktualizacja najlepszej płaszczyzny, jeśli znaleziono lepszy zestaw punktów.
+            best_inliers = inliers
+            best_plane = (A, B, C, D)
+
+    if mean_distance < distance_threshold:
+        print("Chmura jest płaszczyzną.")
+        # Określenie, czy płaszczyzna jest pionowa czy pozioma
+        if np.abs(C) > np.abs(A) and np.abs(C) > np.abs(B):
+            print("Płaszczyzna jest pozioma.")
+        else:
+            print("Płaszczyzna jest pionowa.")
+    else:
+        print("Chmura nie jest płaszczyzną.")
+
+    return best_plane, best_inliers     # Zwrócenie najlepszej płaszczyzny i punktów do niej należących.
+
 def fit_plane_ransac_pyransac3d(points, iterations=100, distance_threshold=0.01):
     """
     Dopasowuje płaszczyznę do chmury punktów za pomocą algorytmu RANSAC z wykorzystaniem pyransac3d.
@@ -73,10 +118,27 @@ def fit_plane_ransac_pyransac3d(points, iterations=100, distance_threshold=0.01)
     """
     plane = Plane()  # Utworzenie instancji klasy Plane z pyransac3d.
     best_eq, best_inliers = plane.fit(points, thresh=distance_threshold, maxIteration=iterations)
-    # `best_eq` zawiera współczynniki A, B, C, D najlepiej dopasowanej płaszczyzny.
-    # `best_inliers` to indeksy punktów z `points`, które najlepiej pasują do znalezionej płaszczyzny.
 
     inlier_points = points[best_inliers]  # Wybór punktów będących inliers z oryginalnej chmury punktów.
+
+    # Wypisanie wektora normalnego
+    normal_vector = np.array(best_eq[:3])
+    print(f"Wektor normalny do płaszczyzny: {normal_vector}")
+
+    # Obliczenie średniej odległości punktów od płaszczyzny
+    distances = np.abs(np.dot(points, normal_vector) + best_eq[3]) / np.linalg.norm(normal_vector)
+    mean_distance = np.mean(distances)
+    print(f"Średnia odległość od płaszczyzny: {mean_distance}")
+
+    if mean_distance < distance_threshold:
+        print("Chmura jest płaszczyzną.")
+        # Określenie, czy płaszczyzna jest pionowa czy pozioma
+        if np.abs(normal_vector[2]) > np.abs(normal_vector[0]) and np.abs(normal_vector[2]) > np.abs(normal_vector[1]):
+            print("Płaszczyzna jest pozioma.")
+        else:
+            print("Płaszczyzna jest pionowa.")
+    else:
+        print("Chmura nie jest płaszczyzną.")
 
     return best_eq, inlier_points
 
@@ -135,48 +197,6 @@ def plot_points(points, inliers, inlier_color='g', outlier_color='r', point_size
     ax.set_zlabel('Z Label') # Ustawienie etykiety osi Z.
     plt.legend() # Dodanie legendy do wykresu.
     plt.show() # Wyświetlenie wykresu.
-def fit_plane_ransac(points, iterations=100, distance_threshold=0.01):
-    """
-    Dopasowuje płaszczyznę do chmury punktów za pomocą algorytmu RANSAC.
-
-    Args:
-        points (np.array): Chmura punktów 3D.
-        iterations (int): Liczba iteracji algorytmu.
-        distance_threshold (float): Próg odległości dla punktów należących do płaszczyzny.
-
-    Returns:
-        tuple: Współczynniki najlepiej dopasowanej płaszczyzny i punkty należące do tej płaszczyzny.
-    """
-    best_plane = None   # Inicjalizacja zmiennej na najlepszą płaszczyznę.
-    best_inliers = []   # Lista punktów najlepiej dopasowanych do płaszczyzny.
-
-    for _ in range(iterations): # Wykonanie określonej liczby iteracji algorytmu.
-        sample_points = points[np.random.choice(points.shape[0], 3, replace=False)]     # Losowe wybranie 3 punktów z chmury.
-        v1 = sample_points[1] - sample_points[0]    # Obliczenie wektorów na płaszczyźnie.
-        v2 = sample_points[2] - sample_points[0]
-        normal_vector = np.cross(v1, v2)    # Obliczenie wektora normalnego do płaszczyzny.
-        A, B, C = normal_vector     # Rozpakowanie współczynników wektora normalnego.
-        D = -np.dot(normal_vector, sample_points[0])    # Obliczenie wartości D w równaniu płaszczyzny.
-
-        distances = np.abs(A*points[:,0] + B*points[:,1] + C*points[:,2] + D) / np.linalg.norm(normal_vector)   # Obliczenie odległości punktów od płaszczyzny.
-        inliers = points[distances < distance_threshold]    # Wybór punktów będących w określonej odległości od płaszczyzny.
-        mean_distance = np.mean(distances)  # Średnia odległość punktów od płaszczyzny
-
-        if len(inliers) > len(best_inliers):    # Aktualizacja najlepszej płaszczyzny, jeśli znaleziono lepszy zestaw punktów.
-            best_inliers = inliers
-            best_plane = (A, B, C, D)
-
-    if mean_distance < distance_threshold:
-        print("Chmura jest płaszczyzną.")
-        # Określenie, czy płaszczyzna jest pionowa czy pozioma
-        if np.abs(C) > np.abs(A) and np.abs(C) > np.abs(B):
-            print("Płaszczyzna jest pozioma.")
-        else:
-            print("Płaszczyzna jest pionowa.")
-    else:
-        print("Chmura nie jest płaszczyzną.")
-
-    return best_plane, best_inliers     # Zwrócenie najlepszej płaszczyzny i punktów do niej należących.
 
 def load_xyz(filename):
     """
