@@ -35,7 +35,7 @@ y_int = label_encoder.fit_transform(y)
 onehot_encoder = OneHotEncoder(sparse=False)
 y_onehot = onehot_encoder.fit_transform(y_int.reshape(-1, 1))
 # iii. Podzielenie zbioru X oraz wektora etykiet y_onehot
-X_train, X_test, y_train, y_test = train_test_split(X, y_onehot, test_size=0.3, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y_onehot, test_size=0.3)
 
 # 2d. Tworzenie modelu sieci neuronowej
 model = Sequential()
@@ -45,12 +45,12 @@ model.add(Dense(3, activation='softmax'))
 model.compile(loss='categorical_crossentropy', optimizer='sgd', metrics=['accuracy'])
 
 # 2e. Uczenie sieci
-model.fit(X_train, y_train, epochs=50, batch_size=10)
+model.fit(X_train, y_train, epochs=100, batch_size=10, shuffle=True)
 
 # 2f. Testowanie sieci
 y_pred = model.predict(X_test)
-y_pred_classes = np.argmax(y_pred, axis=1)
-y_test_classes = np.argmax(y_test, axis=1)
+y_pred_int = np.argmax(y_pred, axis=1)
+y_test_int = np.argmax(y_test, axis=1)
 # Macierz pomyłek
-conf_matrix = confusion_matrix(y_test_classes, y_pred_classes)
-print(conf_matrix)
+cm = confusion_matrix(y_test_int, y_pred_int)
+print(cm)
