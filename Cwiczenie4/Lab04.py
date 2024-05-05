@@ -1,6 +1,5 @@
 import tkinter as tk
 from tkinter import filedialog
-import tensorflow as tf
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from keras.models import Sequential
@@ -22,20 +21,20 @@ file_path = choose_file()
 # 2b. Wczytywanie danych z pliku csv
 data = pd.read_csv(file_path)
 print(data.columns)
-# ii. Wyodrębnienie wektorów cech do macierzy X
+# Wyodrębnienie wektorów cech do macierzy X
 X = data.drop('label', axis=1)  # Zastąp 'column_label' nazwą kolumny etykiet
-# iii. Wyodrębnienie etykiet kategorii do wektora y
+# Wyodrębnienie etykiet kategorii do wektora y
 y = data['label']  # Zastąp 'column_label' nazwą kolumny etykiet
 
 # 2c. Wstępne przetwarzanie danych
-# i. Kodowanie całkowitoliczbowe dla wektora y
+# Kodowanie całkowitoliczbowe dla wektora y
 label_encoder = LabelEncoder()
 y_int = label_encoder.fit_transform(y)
-# ii. Kodowanie 1 z n dla wektora y_int (używając OneHotEncoder)
+# Kodowanie 1 z n dla wektora y_int (używając OneHotEncoder)
 onehot_encoder = OneHotEncoder(sparse=False)
-y_onehot = onehot_encoder.fit_transform(y_int.reshape(-1, 1))
-# iii. Podzielenie zbioru X oraz wektora etykiet y_onehot
-X_train, X_test, y_train, y_test = train_test_split(X, y_onehot, test_size=0.3)
+onehot_encoded = onehot_encoder.fit_transform(y_int.reshape(-1, 1))
+# Podzielenie zbioru X oraz wektora etykiet onehot_encoded
+X_train, X_test, y_train, y_test = train_test_split(X, onehot_encoded, test_size=0.3)
 
 # 2d. Tworzenie modelu sieci neuronowej
 model = Sequential()

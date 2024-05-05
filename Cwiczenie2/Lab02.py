@@ -25,6 +25,9 @@ import tkinter as tk
 from tkinter import filedialog
 import matplotlib.pyplot as plt
 
+from mpl_toolkits.mplot3d import Axes3D
+from scipy.linalg import lstsq
+
 def find_clusters_with_kmeans(points, k=3, n_init=10):
     """
     Dzieli chmurę punktów na rozłączne chmury za pomocą algorytmu k-średnich.
@@ -197,7 +200,6 @@ def plot_points(points, inliers, inlier_color='g', outlier_color='r', point_size
     ax.set_zlabel('Z Label') # Ustawienie etykiety osi Z.
     plt.legend() # Dodanie legendy do wykresu.
     plt.show() # Wyświetlenie wykresu.
-
 def load_xyz(filename):
     """
     Wczytuje chmurę punktów z pliku .xyz.
@@ -240,7 +242,6 @@ if filename:
     plane, inliers = fit_plane_ransac(points)
     print("Współczynniki płaszczyzny:", plane)
     print("Liczba punktów pasujących:", len(inliers))
-
 
     # Wyświetlanie chmury punktów z odróżnieniem kolorów
     labels = find_clusters_with_kmeans(points)
